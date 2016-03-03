@@ -54,7 +54,7 @@ cObj = onCleanup(@()cd(cwd));
 % parse options
 opts = getargs(varargin{:});
 
-if ~ispc  % Unix
+if ~ispc() && ~ismac()  % Unix
     makefile_unix(opts);
     return;
 
@@ -309,6 +309,11 @@ function s = arch_str()
     %
     % See also: mexext, computer
     %
+    
+    if ismac()
+        s = '';
+        return;
+    end
 
     persistent cacheval;
     if isempty(cacheval)
@@ -335,7 +340,7 @@ function s = compiler_str()
     if mexopencv.isOctave()
         s = 'mingw';
     else
-        s = '';
+        s = 'Unknown';
         cc = mex.getCompilerConfigurations('C++', 'Selected');
         if strcmp(cc.Manufacturer, 'Microsoft')
             if ~isempty(strfind(cc.Name, 'Visual'))  % Visual Studio
@@ -373,8 +378,10 @@ function s = compiler_str()
             % TODO: check versions 11.0, 12.0, 13.0, 14.0, 15.0
         elseif strcmp(cc.Manufacturer, 'GNU')  % MinGW (GNU GCC)
             s = 'mingw';
+        elseif strcmp(cc.Manufacturer, 'Apple')  % XCode Clang++
+            s = '';
         end
-        if isempty(s)
+        if strcmp(s, 'Unknown')
             error('mexopencv:make', 'Unsupported compiler: %s', cc.Name);
         end
     end
@@ -453,8 +460,11 @@ end
 function l = lib_names(L_path)
     %LIB_NAMES  return library names
     %
-
-    if ~mexopencv.isOctave()
+    if ismac()
+        d = dir(fullfile(L_path, 'libopencv_*.dylib'));
+        l = unique(regexprep({d.name}, '\.[\.0-9]*dylib$', ''));
+        l = regexprep(l, '^(?:lib)?', '');
+    elseif ~mexopencv.isOctave()
         d = dir(fullfile(L_path, 'opencv_*.lib'));
         l = unique(regexprep({d.name}, 'd?\.lib$', ''));
     else
@@ -488,7 +498,7 @@ function o = objext()
     % See also: mexext
     %
 
-    if ~mexopencv.isOctave()
+    if ispc() && ~mexopencv.isOctave()
         o = 'obj';
     else
         o = 'o';
